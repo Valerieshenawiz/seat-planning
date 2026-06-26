@@ -139,6 +139,7 @@ input,select,textarea{font-family:var(--font)}
 
 /* Right panel */
 .right-panel{flex:1;display:flex;flex-direction:column;overflow:hidden;height:100%}
+.tables-canvas{overflow:auto !important}
 .rp-toolbar{display:flex;align-items:center;justify-content:space-between;
   padding:10px 20px;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0}
 .rp-hint{font-size:12px;color:var(--text3)}
@@ -147,7 +148,7 @@ input,select,textarea{font-family:var(--font)}
 
 /* Round Table */
 .round-table-wrap{display:flex;flex-direction:column;align-items:center;gap:0;position:relative}
-.round-table-scene{position:relative;width:188px;height:188px;flex-shrink:0}
+.round-table-scene{position:relative;width:188px;height:188px;flex-shrink:0;overflow:visible}
 .table-circle{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
   width:84px;height:84px;border-radius:50%;
   background:var(--surface);border:2.5px solid var(--border2);
