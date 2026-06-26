@@ -277,7 +277,7 @@ function buildTableHTML(t) {
   seated.forEach(g => { for (let i = 0; i < g.cnt; i++) slots.push({ gid: g.id, name: g.name, clr: g.clr, cnt: g.cnt }); });
   for (let i = 0; i < Math.max(0, t.cap - used); i++) slots.push(null);
 
-  const centerX = 90, centerY = 90, radius = 72, dotSize = 44;
+  const centerX = 105, centerY = 105, radius = 80, dotSize = 44;
   const totalDots = Math.max(t.cap, slots.length);
 
   const dotsHTML = slots.map((slot, i) => {
