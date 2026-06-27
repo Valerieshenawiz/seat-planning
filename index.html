@@ -1,344 +1,275 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>💍 Joe & Valerie 婚禮管理系統</title>
-<link rel="stylesheet" href="styles.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>婚禮座位管理系統</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
+
+<!-- MODALS -->
+<div id="modal-overlay" class="modal-overlay hidden"></div>
+
+<!-- Guest Modal -->
+<div id="guest-modal" class="modal hidden">
+  <div class="modal-header">
+    <h3 id="guest-modal-title">新增賓客</h3>
+    <button class="btn-icon" onclick="closeModal('guest-modal')">✕</button>
+  </div>
+  <div class="modal-body">
+    <div class="form-group">
+      <label>姓名 *</label>
+      <input type="text" id="g-name" placeholder="例：王小明" />
+    </div>
+    <div class="form-group">
+      <label>賓客屬性</label>
+      <input type="text" id="g-group" placeholder="例：高中同學、公司同事、親戚…" list="group-suggestions" />
+      <datalist id="group-suggestions"></datalist>
+    </div>
+    <div class="form-group">
+      <label>人數</label>
+      <div class="number-input">
+        <button type="button" onclick="adjustNum(-1)">−</button>
+        <input type="number" id="g-count" value="1" min="1" max="20" />
+        <button type="button" onclick="adjustNum(1)">＋</button>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>代表色</label>
+      <div class="color-picker-row">
+        <div id="color-swatches" class="color-swatches"></div>
+        <input type="color" id="g-color" value="#6366f1" />
+      </div>
+    </div>
+    <div class="form-group">
+      <label>備註</label>
+      <input type="text" id="g-note" placeholder="選填" />
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button class="btn-secondary" onclick="closeModal('guest-modal')">取消</button>
+    <button class="btn-primary" onclick="saveGuest()">儲存</button>
+  </div>
+</div>
+
+<!-- Table Modal -->
+<div id="table-modal" class="modal hidden">
+  <div class="modal-header">
+    <h3 id="table-modal-title">編輯桌次</h3>
+    <button class="btn-icon" onclick="closeModal('table-modal')">✕</button>
+  </div>
+  <div class="modal-body">
+    <div class="form-group">
+      <label>桌名</label>
+      <input type="text" id="t-name" placeholder="例：第一桌、主桌…" />
+    </div>
+    <div class="form-group">
+      <label>座位上限</label>
+      <div class="number-input">
+        <button type="button" onclick="adjustTableCap(-1)">−</button>
+        <input type="number" id="t-cap" value="10" min="1" max="30" />
+        <button type="button" onclick="adjustTableCap(1)">＋</button>
+      </div>
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button class="btn-secondary" onclick="closeModal('table-modal')">取消</button>
+    <button class="btn-primary" onclick="saveTable()">儲存</button>
+  </div>
+</div>
+
+<!-- Import Modal -->
+<div id="import-modal" class="modal hidden">
+  <div class="modal-header">
+    <h3>匯入 Excel</h3>
+    <button class="btn-icon" onclick="closeModal('import-modal')">✕</button>
+  </div>
+  <div class="modal-body">
+    <p class="hint-text">Excel 欄位格式（第一列為標題）：<br>
+      <strong>姓名 | 屬性 | 人數 | 備註</strong>
+    </p>
+    <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+      <div class="drop-zone-inner">
+        <span class="drop-icon">📄</span>
+        <p>點擊或拖曳 Excel 檔案至此</p>
+        <p class="hint-text">.xlsx / .xls / .csv</p>
+      </div>
+      <input type="file" id="file-input" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleFileImport(event)" />
+    </div>
+    <div id="import-preview" class="import-preview hidden"></div>
+  </div>
+  <div class="modal-footer">
+    <button class="btn-secondary" onclick="closeModal('import-modal')">取消</button>
+    <button class="btn-primary" id="confirm-import-btn" onclick="confirmImport()" disabled>確認匯入</button>
+  </div>
+</div>
+
+<!-- Confirm Dialog -->
+<div id="confirm-modal" class="modal modal-sm hidden">
+  <div class="modal-header">
+    <h3 id="confirm-title">確認</h3>
+    <button class="btn-icon" onclick="closeModal('confirm-modal')">✕</button>
+  </div>
+  <div class="modal-body">
+    <p id="confirm-message"></p>
+  </div>
+  <div class="modal-footer">
+    <button class="btn-secondary" onclick="closeModal('confirm-modal')">取消</button>
+    <button class="btn-danger" id="confirm-ok-btn">確認</button>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast-container" class="toast-container"></div>
+
+<!-- MAIN APP -->
 <div id="app">
 
-  <!-- TOPBAR -->
-  <header class="topbar">
-    <div class="topbar-left">
-      <div class="logo">💍 <span>Joe & Valerie</span></div>
-      <nav class="tabs">
-        <button class="tab active" data-tab="dashboard">Dashboard</button>
-        <button class="tab" data-tab="seating">座位安排</button>
-        <button class="tab" data-tab="guests">賓客管理</button>
-        <button class="tab" data-tab="qrcode">QR Code</button>
-        <button class="tab" data-tab="reception">報到台</button>
-      </nav>
-    </div>
-    <div class="topbar-right">
-      <button class="pill-btn" id="btn-import">↑ 匯入</button>
-      <button class="pill-btn" id="btn-export">↓ 匯出</button>
-      <button class="pill-btn danger" id="btn-clear-all">🗑 清除</button>
-      <button class="icon-btn" id="btn-undo" disabled title="Ctrl+Z">↩</button>
-      <button class="icon-btn" id="btn-redo" disabled title="Ctrl+Y">↪</button>
-      <span class="save-dot" id="save-dot"></span>
-    </div>
-  </header>
-
-  <!-- ═══════════════════════════════════ DASHBOARD ═══════════════════════════════════ -->
-  <div id="tab-dashboard" class="tab-pane active">
-    <div class="page-wrap">
-      <div class="page-header">
-        <div><h1>Dashboard</h1><p>Joe & Valerie · 2026.07.04 · 即時總覽</p></div>
-      </div>
-
-      <!-- Row 1: Key numbers -->
-      <div class="dash-grid-4">
-        <div class="dash-card accent">
-          <div class="dc-icon">👥</div>
-          <div class="dc-val" id="d-total">0</div>
-          <div class="dc-lbl">總賓客人數</div>
-        </div>
-        <div class="dash-card green">
-          <div class="dc-icon">✅</div>
-          <div class="dc-val" id="d-checkin">0</div>
-          <div class="dc-lbl">已報到</div>
-        </div>
-        <div class="dash-card orange">
-          <div class="dc-icon">⏳</div>
-          <div class="dc-val" id="d-pending">0</div>
-          <div class="dc-lbl">未報到</div>
-        </div>
-        <div class="dash-card purple">
-          <div class="dc-icon">📊</div>
-          <div class="dc-val" id="d-rate">0%</div>
-          <div class="dc-lbl">到客率</div>
-        </div>
-      </div>
-
-      <!-- Row 2: Seat + Gift + Cake -->
-      <div class="dash-grid-3">
-        <div class="dash-card blue">
-          <div class="dc-icon">🪑</div>
-          <div class="dc-val" id="d-seated">0</div>
-          <div class="dc-lbl">已安排座位</div>
-          <div class="dc-sub" id="d-unseated">未安排 0</div>
-        </div>
-        <div class="dash-card gold">
-          <div class="dc-icon">🧧</div>
-          <div class="dc-val" id="d-gift">$0</div>
-          <div class="dc-lbl">禮金總額</div>
-          <div class="dc-sub" id="d-gift-sub">已登記 0 筆</div>
-        </div>
-        <div class="dash-card pink">
-          <div class="dc-icon">🎁</div>
-          <div class="dc-val" id="d-cake">0</div>
-          <div class="dc-lbl">已發喜餅</div>
-          <div class="dc-sub" id="d-cake-sub">未發 0</div>
-        </div>
-      </div>
-
-      <!-- Row 3: Table status -->
-      <div class="dash-section">
-        <h2 class="section-title">各桌狀態</h2>
-        <div class="dash-table-grid" id="d-tables"></div>
-      </div>
-
-      <!-- Recent checkins -->
-      <div class="dash-section">
-        <h2 class="section-title">最近報到</h2>
-        <div class="recent-list" id="d-recent"></div>
+  <!-- Sidebar -->
+  <aside id="sidebar">
+    <div class="sidebar-header">
+      <div class="logo">💍</div>
+      <div>
+        <div class="app-title">婚禮座位</div>
+        <div class="app-subtitle">管理系統</div>
       </div>
     </div>
-  </div>
 
-  <!-- ═══════════════════════════════════ SEATING ═══════════════════════════════════ -->
-  <div id="tab-seating" class="tab-pane">
-    <aside class="left-panel">
-      <div class="lp-header">
-        <span>未安排賓客</span>
-        <span class="badge" id="unassigned-badge">0</span>
+    <!-- Stats -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-value" id="stat-total">0</div>
+        <div class="stat-label">總人數</div>
       </div>
-      <div class="lp-search">
-        <input type="text" id="search-unassigned" placeholder="🔍 搜尋賓客...">
+      <div class="stat-card">
+        <div class="stat-value stat-green" id="stat-seated">0</div>
+        <div class="stat-label">已安排</div>
       </div>
-      <div class="lp-filters" id="group-filters"></div>
-      <div class="guest-pool" id="guest-pool"></div>
-    </aside>
-    <main class="right-panel">
-      <div class="rp-toolbar">
-        <span class="rp-hint">拖曳賓客至圓桌 · 點小圓圈移除</span>
-        <div style="display:flex;gap:6px">
-          <button class="pill-btn sm danger" id="btn-clear-guests">🗑 清除名單</button>
-          <button class="pill-btn sm warn" id="btn-unassign-all">↩ 全部重排</button>
-          <button class="pill-btn sm" id="btn-add-table-s">＋ 新增桌</button>
-        </div>
+      <div class="stat-card">
+        <div class="stat-value stat-amber" id="stat-unassigned">0</div>
+        <div class="stat-label">未安排</div>
       </div>
-      <div class="tables-canvas" id="tables-canvas"></div>
-    </main>
-  </div>
-
-  <!-- ═══════════════════════════════════ GUESTS ═══════════════════════════════════ -->
-  <div id="tab-guests" class="tab-pane">
-    <div class="page-wrap wide">
-      <div class="page-header">
-        <div><h1>賓客管理</h1><p>座位、禮金、喜餅一頁完成</p></div>
-        <div class="row-gap">
-          <button class="pill-btn" id="btn-batch">批次修改</button>
-          <button class="pill-btn accent" id="btn-add-guest">＋ 新增賓客</button>
-        </div>
-      </div>
-      <div class="table-toolbar">
-        <input type="text" class="search-input" id="search-guests" placeholder="🔍 搜尋姓名、桌號、群組...">
-        <select id="filter-side" class="sel">
-          <option value="">全部</option>
-          <option value="groom">新郎方</option>
-          <option value="bride">新娘方</option>
-        </select>
-        <select id="filter-checkin" class="sel">
-          <option value="">報到狀態</option>
-          <option value="yes">已報到</option>
-          <option value="no">未報到</option>
-        </select>
-        <select id="filter-cake" class="sel">
-          <option value="">喜餅狀態</option>
-          <option value="yes">已發餅</option>
-          <option value="no">未發餅</option>
-        </select>
-        <select id="filter-gift" class="sel">
-          <option value="">禮金狀態</option>
-          <option value="yes">已登記</option>
-          <option value="no">未登記</option>
-        </select>
-      </div>
-      <div class="table-wrap">
-        <table class="data-table" id="guest-table">
-          <thead><tr>
-            <th><input type="checkbox" id="sel-all"></th>
-            <th>姓名</th>
-            <th>方</th>
-            <th>人數</th>
-            <th>顏色</th>
-            <th>桌號</th>
-            <th>報到</th>
-            <th>禮金 (NT$)</th>
-            <th>喜餅</th>
-            <th>備註</th>
-            <th>操作</th>
-          </tr></thead>
-          <tbody id="guest-tbody"></tbody>
-        </table>
+      <div class="stat-card">
+        <div class="stat-value" id="stat-tables">25</div>
+        <div class="stat-label">桌數</div>
       </div>
     </div>
-  </div>
 
-  <!-- ═══════════════════════════════════ QR CODE ═══════════════════════════════════ -->
-  <div id="tab-qrcode" class="tab-pane">
-    <div class="page-wrap">
-      <div class="page-header">
-        <div><h1>QR Code 管理</h1><p>婚禮報到 QR Code</p></div>
+    <!-- Undo/Redo -->
+    <div class="undo-bar">
+      <button class="btn-undo" id="btn-undo" onclick="undo()" disabled title="復原 (Ctrl+Z)">
+        ↩ 復原
+      </button>
+      <button class="btn-undo" id="btn-redo" onclick="redo()" disabled title="重做 (Ctrl+Y)">
+        重做 ↪
+      </button>
+    </div>
+
+    <!-- Nav -->
+    <nav class="sidebar-nav">
+      <button class="nav-item active" data-view="seating" onclick="switchView('seating')">
+        <span>🪑</span> 座位安排
+      </button>
+      <button class="nav-item" data-view="guests" onclick="switchView('guests')">
+        <span>👥</span> 賓客管理
+      </button>
+      <button class="nav-item" data-view="tables" onclick="switchView('tables')">
+        <span>🍽</span> 桌次管理
+      </button>
+    </nav>
+
+    <!-- Actions -->
+    <div class="sidebar-actions">
+      <button class="btn-action" onclick="openImportModal()">📥 匯入 Excel</button>
+      <button class="btn-action" onclick="exportExcel()">📤 匯出 Excel</button>
+      <button class="btn-action btn-action-danger" onclick="confirmClearAll()">🗑 清空所有資料</button>
+    </div>
+
+    <div class="sidebar-footer">
+      <span id="save-indicator">● 已自動儲存</span>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main id="main">
+
+    <!-- ===== SEATING VIEW ===== -->
+    <div id="view-seating" class="view active">
+      <div class="view-header">
+        <div>
+          <h1>座位安排</h1>
+          <p class="view-subtitle">將左側賓客拖曳至右側桌次，或點擊賓客卡片選取後點擊桌次指派</p>
+        </div>
+        <div class="view-actions">
+          <button class="btn-secondary" onclick="autoAssign()">⚡ 自動分配未安排</button>
+          <button class="btn-secondary" onclick="clearAllAssignments()">↺ 清除所有安排</button>
+        </div>
       </div>
-      <div class="qr-center">
-        <div class="qr-card">
-          <div class="qr-box" id="qr-box"></div>
-          <div class="qr-caption">
-            <p>請掃描 QR Code 完成婚禮報到</p>
-            <p class="qr-title-text">Joe & Valerie Wedding</p>
-            <p class="qr-date-text">2026.07.04</p>
+
+      <div class="seating-layout">
+        <!-- Unassigned Panel -->
+        <div class="unassigned-panel">
+          <div class="panel-header">
+            <h3>未安排賓客 <span id="unassigned-badge" class="badge">0</span></h3>
+            <input type="text" id="unassigned-search" placeholder="搜尋…" oninput="renderUnassigned()" />
           </div>
-          <div class="qr-url-row">
-            <span class="qr-url-label" id="qr-url-display"></span>
-            <button class="pill-btn sm" id="btn-copy-url">複製網址</button>
-          </div>
-          <div class="qr-actions">
-            <button class="pill-btn accent" id="btn-dl-png">↓ 下載 PNG</button>
-            <button class="pill-btn" id="btn-print-qr">🖨 列印</button>
-            <a class="pill-btn" id="btn-open-checkin" target="_blank">↗ 開啟報到頁</a>
-          </div>
+          <div id="unassigned-list" class="unassigned-list"></div>
+        </div>
+
+        <!-- Tables Grid -->
+        <div class="tables-area">
+          <div id="tables-grid" class="tables-grid"></div>
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- ═══════════════════════════════════ RECEPTION ═══════════════════════════════════ -->
-  <div id="tab-reception" class="tab-pane">
-    <div class="reception-layout">
-      <!-- Left: live feed -->
-      <div class="rec-left">
-        <div class="rec-header">
-          <h2>即時報到</h2>
-          <div class="rec-stats">
-            <span>已到 <b id="r-in">0</b></span>
-            <span>未到 <b id="r-out">0</b></span>
-            <span>到客率 <b id="r-rate">0%</b></span>
-          </div>
+    <!-- ===== GUESTS VIEW ===== -->
+    <div id="view-guests" class="view">
+      <div class="view-header">
+        <div>
+          <h1>賓客管理</h1>
+          <p class="view-subtitle">管理所有賓客資料</p>
         </div>
-        <div class="rec-feed" id="rec-feed">
-          <div class="empty"><div class="empty-icon">👋</div><p>等待賓客報到...</p></div>
+        <div class="view-actions">
+          <input type="text" id="guest-search" class="search-input" placeholder="搜尋姓名或屬性…" oninput="renderGuestList()" />
+          <button class="btn-primary" onclick="openAddGuest()">＋ 新增賓客</button>
         </div>
       </div>
-      <!-- Right: manual checkin -->
-      <div class="rec-right">
-        <div class="rec-header"><h2>手動報到</h2></div>
-        <div class="rec-form">
-          <div class="fg">
-            <label>搜尋賓客</label>
-            <input type="text" id="rec-search" class="fi" placeholder="輸入姓名搜尋...">
-          </div>
-          <div class="rec-results" id="rec-results"></div>
-        </div>
-        <div class="rec-selected" id="rec-selected" style="display:none">
-          <div class="rec-sel-name" id="rec-sel-name"></div>
-          <div class="rec-sel-info" id="rec-sel-info"></div>
-          <div class="fg"><label>禮金 (NT$)</label><input type="number" id="rec-gift" class="fi" placeholder="0"></div>
-          <div class="fg"><label>備註</label><input type="text" id="rec-note" class="fi" placeholder="選填"></div>
-          <div class="fg-row">
-            <label><input type="checkbox" id="rec-cake"> 已發喜餅</label>
-          </div>
-          <button class="pill-btn accent full" id="btn-do-checkin">✅ 完成報到</button>
-          <button class="pill-btn full mt4" id="btn-cancel-sel">取消</button>
-        </div>
+
+      <div class="guest-toolbar">
+        <label class="checkbox-label">
+          <input type="checkbox" id="select-all-checkbox" onchange="toggleSelectAll()" />
+          全選
+        </label>
+        <button class="btn-ghost" id="batch-delete-btn" onclick="batchDelete()" disabled>🗑 刪除選取</button>
+        <button class="btn-ghost" onclick="openImportModal()">📥 匯入</button>
+        <button class="btn-ghost" onclick="exportExcel()">📤 匯出</button>
       </div>
+
+      <div id="guest-list" class="guest-list"></div>
     </div>
-  </div>
 
-</div><!-- end #app -->
-
-<!-- ═══════════ MODALS ═══════════ -->
-<div id="overlay" class="overlay hidden" onclick="handleOverlayClick(event)">
-
-  <!-- Guest Modal -->
-  <div id="modal-guest" class="modal hidden">
-    <div class="modal-hd"><span id="mg-title">新增賓客</span><button onclick="closeModal('guest')" class="x-btn">✕</button></div>
-    <div class="modal-bd">
-      <div class="form-2col">
-        <div class="fg"><label>姓名 *</label><input id="g-name" class="fi" placeholder="賓客姓名"></div>
-        <div class="fg"><label>方</label>
-          <select id="g-side" class="fi"><option value="">不指定</option><option value="groom">新郎方</option><option value="bride">新娘方</option></select>
+    <!-- ===== TABLES VIEW ===== -->
+    <div id="view-tables" class="view">
+      <div class="view-header">
+        <div>
+          <h1>桌次管理</h1>
+          <p class="view-subtitle">新增、編輯或刪除桌次</p>
+        </div>
+        <div class="view-actions">
+          <button class="btn-primary" onclick="addTable()">＋ 新增桌次</button>
         </div>
       </div>
-      <div class="form-2col">
-        <div class="fg"><label>群組</label><input id="g-group" class="fi" placeholder="高中同學、親戚..." list="grp-dl"><datalist id="grp-dl"></datalist></div>
-        <div class="fg"><label>人數</label>
-          <div class="num-row"><button class="nb" id="g-dec">−</button><input id="g-count" class="fi nc" type="number" value="1" min="1"><button class="nb" id="g-inc">＋</button></div>
-        </div>
-      </div>
-      <div class="fg"><label>代表色</label>
-        <div class="cp-row"><div id="cp-swatches" class="swatches"></div><input type="color" id="g-color" class="color-wheel" value="#6366f1"></div>
-      </div>
-      <div class="fg"><label>備註</label><input id="g-note" class="fi" placeholder="選填"></div>
+      <div id="table-list" class="table-list"></div>
     </div>
-    <div class="modal-ft"><button onclick="closeModal('guest')" class="pill-btn">取消</button><button id="btn-save-guest" class="pill-btn accent">儲存</button></div>
-  </div>
 
-  <!-- Table Modal -->
-  <div id="modal-table" class="modal hidden">
-    <div class="modal-hd"><span id="mt-title">桌次設定</span><button onclick="closeModal('table')" class="x-btn">✕</button></div>
-    <div class="modal-bd">
-      <div class="fg"><label>桌名</label><input id="t-name" class="fi" placeholder="第1桌"></div>
-      <div class="fg"><label>容量</label>
-        <div class="num-row"><button class="nb" id="t-dec">−</button><input id="t-cap" class="fi nc" type="number" value="10" min="1"><button class="nb" id="t-inc">＋</button></div>
-      </div>
-    </div>
-    <div class="modal-ft"><button onclick="closeModal('table')" class="pill-btn">取消</button><button id="btn-save-table" class="pill-btn accent">儲存</button></div>
-  </div>
+  </main>
+</div>
 
-  <!-- Confirm Modal -->
-  <div id="modal-confirm" class="modal hidden">
-    <div class="modal-hd"><span id="conf-title">確認</span></div>
-    <div class="modal-bd"><p id="conf-msg" style="line-height:1.7;color:#444"></p></div>
-    <div class="modal-ft"><button id="conf-cancel" class="pill-btn">取消</button><button id="conf-ok" class="pill-btn danger">確認</button></div>
-  </div>
-
-  <!-- Batch Modal -->
-  <div id="modal-batch" class="modal hidden">
-    <div class="modal-hd"><span>批次修改</span><button onclick="closeModal('batch')" class="x-btn">✕</button></div>
-    <div class="modal-bd">
-      <p style="color:#888;font-size:13px;margin-bottom:4px">已選 <b id="batch-n">0</b> 位賓客</p>
-      <div class="fg"><label>群組</label><input id="b-group" class="fi" placeholder="新群組名稱" list="grp-dl"></div>
-      <div class="fg"><label>方</label><select id="b-side" class="fi"><option value="">不變</option><option value="groom">新郎方</option><option value="bride">新娘方</option></select></div>
-      <div class="fg"><label>代表色</label>
-        <div class="cp-row"><div id="bp-swatches" class="swatches"></div><input type="color" id="b-color" class="color-wheel" value="#6366f1"></div>
-      </div>
-    </div>
-    <div class="modal-ft"><button onclick="closeModal('batch')" class="pill-btn">取消</button><button id="btn-save-batch" class="pill-btn accent">套用</button></div>
-  </div>
-
-  <!-- Import Modal -->
-  <div id="modal-import" class="modal hidden">
-    <div class="modal-hd"><span>匯入 Excel</span><button onclick="closeModal('import')" class="x-btn">✕</button></div>
-    <div class="modal-bd">
-      <div class="drop-zone" id="drop-zone">
-        <div style="font-size:32px">📊</div>
-        <p>拖曳 Excel 至此或點擊選擇</p>
-        <p style="font-size:12px;color:#aaa">支援 .xlsx .xls</p>
-        <input type="file" id="file-input" accept=".xlsx,.xls" style="display:none">
-        <button class="pill-btn" id="btn-pick">選擇檔案</button>
-      </div>
-      <div class="import-tmpl-row">
-        <span style="font-size:12px;color:#aaa">格式：姓名｜方｜群組｜人數｜代表色</span>
-        <button class="pill-btn sm" id="btn-tmpl">下載範本</button>
-      </div>
-      <div id="import-preview" class="hidden">
-        <p style="font-size:13px;margin-bottom:8px">預覽：將匯入 <b id="import-n">0</b> 筆</p>
-        <div id="import-warns"></div>
-        <div class="preview-list" id="preview-list"></div>
-      </div>
-    </div>
-    <div class="modal-ft"><button onclick="closeModal('import')" class="pill-btn">取消</button><button id="btn-do-import" class="pill-btn accent" disabled>匯入</button></div>
-  </div>
-
-</div><!-- end overlay -->
-
-<div id="toasts"></div>
-<script src="app.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="js/app.js"></script>
 </body>
 </html>
